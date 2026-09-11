@@ -71,8 +71,13 @@ namespace StreamCompaction {
                     odata[alivePrefixSum[i]] = idata[i];
                 }
             }
+
+            int count = alivePrefixSum[n - 1] + alive[n - 1];
+            delete[] alive;
+            delete[] alivePrefixSum;
+
             timer().endCpuTimer();
-            return alivePrefixSum[n - 1] + alive[n - 1];
+            return count;
         }
     }
 }
