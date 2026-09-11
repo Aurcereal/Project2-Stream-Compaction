@@ -4,8 +4,6 @@
 #include "naive.h"
 #include <iostream>
 
-#define BLOCK_SIZE 128
-
 namespace StreamCompaction {
     namespace Naive {
         using StreamCompaction::Common::PerformanceTimer;
@@ -38,14 +36,13 @@ namespace StreamCompaction {
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
-            timer().startGpuTimer();
-
-            dim3 blockCount = dim3((n + BLOCK_SIZE - 1) / BLOCK_SIZE);
-
             int* a, * b;
             cudaMalloc((void**)&a, n * sizeof(int));
             cudaMalloc((void**)&b, n * sizeof(int));
             cudaMemcpy(a, idata, n * sizeof(int), cudaMemcpyHostToDevice);
+
+            timer().startGpuTimer();
+            dim3 blockCount = dim3((n + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
             int* src, *dst;
             int count = ilog2ceil(n);
@@ -60,12 +57,12 @@ namespace StreamCompaction {
             inclusiveToExclusiveScan << <blockCount, threadsPerBlock >> > (n, src, dst);
             cudaDeviceSynchronize();
 
+            timer().endGpuTimer();
+
             cudaMemcpy(odata, dst, n * sizeof(int), cudaMemcpyDeviceToHost);
 
             cudaFree(a);
             cudaFree(b);
-
-            timer().endGpuTimer();
         }
     }
 }
