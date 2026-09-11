@@ -2,6 +2,9 @@
 #include <cuda_runtime.h>
 #include "common.h"
 #include "naive.h"
+#include <iostream>
+
+#define BLOCK_SIZE 128
 
 namespace StreamCompaction {
     namespace Naive {
@@ -11,14 +14,57 @@ namespace StreamCompaction {
             static PerformanceTimer timer;
             return timer;
         }
-        // TODO: __global__
+
+        dim3 threadsPerBlock(BLOCK_SIZE);
+
+        __global__ void naiveScan(int n, int* odata, const int* idata, int off) {
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+            if (index >= n) return;
+
+            if (index - off >= 0) {
+                odata[index] = idata[index] + idata[index - off];
+            } else {
+                odata[index] = idata[index];
+            }
+        }
+
+        __global__ void inclusiveToExclusiveScan(int n, const int* idata, int* scan) {
+            int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+            if (index >= n) return;
+            scan[index] -= idata[index];
+        }
 
         /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
             timer().startGpuTimer();
-            // TODO
+
+            dim3 blockCount = dim3((n + BLOCK_SIZE - 1) / BLOCK_SIZE);
+
+            int* a, * b;
+            cudaMalloc((void**)&a, n * sizeof(int));
+            cudaMalloc((void**)&b, n * sizeof(int));
+            cudaMemcpy(a, idata, n * sizeof(int), cudaMemcpyHostToDevice);
+
+            int* src, *dst;
+            int count = ilog2ceil(n);
+            for (int i = 0; i < count; ++i) {
+                src = i % 2 == 0 ? a : b;
+                dst = i % 2 == 0 ? b : a;
+                naiveScan << <blockCount, threadsPerBlock >> > (n, dst, src, 1 << i);
+                if(i < count-1) cudaDeviceSynchronize();
+            }
+
+            cudaMemcpy(src, idata, n * sizeof(int), cudaMemcpyHostToDevice);
+            inclusiveToExclusiveScan << <blockCount, threadsPerBlock >> > (n, src, dst);
+            cudaDeviceSynchronize();
+
+            cudaMemcpy(odata, dst, n * sizeof(int), cudaMemcpyDeviceToHost);
+
+            cudaFree(a);
+            cudaFree(b);
+
             timer().endGpuTimer();
         }
     }
