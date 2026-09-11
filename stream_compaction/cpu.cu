@@ -19,7 +19,10 @@ namespace StreamCompaction {
          */
         void scan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            odata[0] = 0;
+            for (int i = 1; i < n; ++i) {
+                odata[i] = odata[i - 1] + idata[i - 1];
+            }
             timer().endCpuTimer();
         }
 
@@ -30,9 +33,16 @@ namespace StreamCompaction {
          */
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            int ind = 0;
+            for (int i = 0; i < n; ++i) {
+                if (idata[i] != 0) {
+                    odata[ind] = idata[i];
+                    ind++; // odata[ind++]
+                }
+            }
             timer().endCpuTimer();
-            return -1;
+
+            return ind;
         }
 
         /**
@@ -42,9 +52,27 @@ namespace StreamCompaction {
          */
         int compactWithScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            
+            // 
+            int* alive = new int[n];
+            for (int i = 0; i < n; i++) {
+                alive[i] = idata[i] != 0 ? 1 : 0;
+            }
+            int* alivePrefixSum = new int[n];
+            
+            // Scan (don't use func)
+            alivePrefixSum[0] = 0;
+            for (int i = 1; i < n; ++i) {
+                alivePrefixSum[i] = alivePrefixSum[i - 1] + alive[i - 1];
+            }
+
+            for (int i = 0; i < n; i++) {
+                if (alive[i] == 1) {
+                    odata[alivePrefixSum[i]] = idata[i];
+                }
+            }
             timer().endCpuTimer();
-            return -1;
+            return alivePrefixSum[n - 1] + alive[n - 1];
         }
     }
 }
