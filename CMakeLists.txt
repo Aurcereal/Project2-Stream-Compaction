@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.18)
 project(cis5650_stream_compaction_test LANGUAGES CUDA CXX)
 
+if(MSVC)
+    # 1. Apply to standard C++ files (.cpp, .h)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/Zc:preprocessor>)
+
+    # 2. Correctly wrap it for CUDA files (.cu) so nvcc passes it safely via -Xcompiler
+    if(CMAKE_CUDA_COMPILER)
+        add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/Zc:preprocessor>)
+    endif()
+endif()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
