@@ -13,6 +13,8 @@
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
 
+#define BLOCK_SIZE 32
+
 /**
  * Check for CUDA errors; print and exit if there was a problem.
  */
@@ -81,6 +83,7 @@ namespace StreamCompaction {
 
             void startGpuTimer()
             {
+                if (gpu_timer_lock) return;
                 if (gpu_timer_started) { throw std::runtime_error("GPU timer already started"); }
                 gpu_timer_started = true;
 
@@ -89,6 +92,7 @@ namespace StreamCompaction {
 
             void endGpuTimer()
             {
+                if (gpu_timer_lock) return;
                 cudaEventRecord(event_end);
                 cudaEventSynchronize(event_end);
 
@@ -96,6 +100,10 @@ namespace StreamCompaction {
 
                 cudaEventElapsedTime(&prev_elapsed_time_gpu_milliseconds, event_start, event_end);
                 gpu_timer_started = false;
+            }
+
+            void setGpuTimerLock(bool val) {
+                gpu_timer_lock = val;
             }
 
             float getCpuElapsedTimeForPreviousOperation() //noexcept //(damn I need VS 2015
@@ -124,6 +132,7 @@ namespace StreamCompaction {
 
             bool cpu_timer_started = false;
             bool gpu_timer_started = false;
+            bool gpu_timer_lock = false;
 
             float prev_elapsed_time_cpu_milliseconds = 0.f;
             float prev_elapsed_time_gpu_milliseconds = 0.f;
